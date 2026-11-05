@@ -347,8 +347,8 @@ export default function Home() {
                            </div>
                             <div className="flex items-center gap-2">
                                 <span className="text-xs bg-emerald-100 text-emerald-700 px-2.5 py-0.5 rounded-full font-medium">Active</span>
-                                <Edit2 onClick={() => handleEditGuideline(g)} className="w-4 h-4 text-gray-400 hover:text-slate-950 cursor-pointer" title="Edit" />
-                                <Trash2 onClick={() => handleDeleteGuideline(g.id)} className="w-4 h-4 text-gray-400 hover:text-rose-500 cursor-pointer" title="Delete" />
+                                <Edit2 onClick={() => handleEditGuideline(g)} className="w-4 h-4 text-gray-400 hover:text-slate-950 cursor-pointer" />
+                                <Trash2 onClick={() => handleDeleteGuideline(g.id)} className="w-4 h-4 text-gray-400 hover:text-rose-500 cursor-pointer" />
                             </div>
                         </div>
                     ))}
