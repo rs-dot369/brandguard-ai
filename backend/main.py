@@ -19,8 +19,21 @@ app.add_middleware(
 )
 
 # Initialize ChromaDB client (local persistent storage)
+class SimpleEmbeddingFunction(embedding_functions.EmbeddingFunction):
+    def __call__(self, input):
+        embeddings = []
+        for text in input:
+            h = int(hashlib.md5(text.encode()).hexdigest(), 16)
+            vec = [float((h >> i) & 1) for i in range(384)]
+            embeddings.append(vec)
+        return embeddings
+
+# Initialize ChromaDB client with custom lightweight embeddings
 chroma_client = chromadb.Client()
-collection = chroma_client.get_or_create_collection(name="brand_guidelines")
+collection = chroma_client.get_or_create_collection(
+    name="brand_guidelines",
+    embedding_function=SimpleEmbeddingFunction()
+)
 
 # Initialize OpenAI/Compatible LLM Client
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY", "dummy-key-for-demo"))
