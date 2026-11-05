@@ -4,7 +4,9 @@ from pydantic import BaseModel
 from typing import List
 import os
 import uuid
+import hashlib
 import chromadb
+from chromadb.utils import embedding_functions
 from openai import OpenAI
 
 app = FastAPI(title="BrandGuard AI API", version="1.0.0")
