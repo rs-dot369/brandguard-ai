@@ -59,7 +59,6 @@ export default function Home() {
   const [showAllHistoryModal, setShowAllHistoryModal] = useState(false);
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
   
-  // Live guideline count from backend vault
   const [serverGuidelinesCount, setServerGuidelinesCount] = useState(0);
 
   const [userName, setUserName] = useState("User");
@@ -69,6 +68,9 @@ export default function Home() {
 
   const router = useRouter();
   const profileRef = useRef<HTMLDivElement>(null);
+
+  // Computed RBAC flag
+  const isAdmin = userRole.toLowerCase() === "admin";
 
   // --- ALL HOOKS DECLARED UNCONDITIONALLY AT THE TOP ---
 
@@ -174,6 +176,10 @@ export default function Home() {
   };
 
   const handleAddGuideline = async () => {
+    if (!isAdmin) {
+      alert("RBAC Access Denied: Only Administrators can add guidelines to the Knowledge Vault. Editors have audit and scanning privileges.");
+      return;
+    }
     if (!guidelineTitle.trim() || !guidelineContent.trim()) {
       alert("Please enter both guideline title and content.");
       return;
@@ -206,6 +212,10 @@ export default function Home() {
   };
 
   const handleDeleteGuideline = async (id: string) => {
+    if (!isAdmin) {
+      alert("RBAC Access Denied: Only Administrators can delete vault guidelines.");
+      return;
+    }
     try {
       const token = localStorage.getItem("access_token");
       const res = await fetch(`${API_URL}/api/guidelines/${id}`, {
@@ -225,6 +235,10 @@ export default function Home() {
   };
 
   const handleEditGuideline = async (g: Guideline) => {
+    if (!isAdmin) {
+      alert("RBAC Access Denied: Only Administrators can edit vault guidelines.");
+      return;
+    }
     setGuidelineTitle(g.title);
     setGuidelineContent(g.content);
     const token = localStorage.getItem("access_token");
@@ -320,7 +334,6 @@ export default function Home() {
     { name: "Reports", icon: BarChart3Icon },
   ];
 
-  // Fully session-synced calculations
   const totalGuidelines = serverGuidelinesCount || guidelines.length;
   const totalAudits = auditHistory.length;
   const passedAudits = auditHistory.filter(l => l.status === "PASS").length;
@@ -404,8 +417,13 @@ export default function Home() {
               >
                 <img src={`https://api.dicebear.com/8.x/adventurer/svg?seed=${userName}`} alt="User" className="w-8 h-8 rounded-full border border-gray-200" />
                 <div className="flex flex-col text-left">
-                  <span className="font-semibold text-sm">{userName}</span>
-                  <span className="text-xs text-gray-400 -mt-0.5">{userRole}</span>
+                  <span className="font-semibold text-sm flex items-center gap-1.5">
+                    {userName} 
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono uppercase ${isAdmin ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'}`}>
+                      {userRole}
+                    </span>
+                  </span>
+                  <span className="text-xs text-gray-400 -mt-0.5">{userEmail}</span>
                 </div>
                 <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${isProfileOpen ? 'rotate-180' : ''}`} />
               </div>
@@ -414,7 +432,7 @@ export default function Home() {
               {isProfileOpen && (
                 <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-100 rounded-2xl shadow-xl z-50 overflow-hidden py-2">
                   <div className="px-4 py-2 border-b border-gray-50">
-                    <p className="text-xs text-gray-400">Signed in as</p>
+                    <p className="text-xs text-gray-400">Signed in as ({userRole})</p>
                     <p className="text-sm font-bold text-slate-950 truncate">{userEmail}</p>
                   </div>
                   <div className="py-1">
@@ -463,15 +481,35 @@ export default function Home() {
           {/* 1. Brand Knowledge Vault & Your Guidelines */}
           <section id="vault-section" className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-5">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-slate-950 flex items-center gap-2"><span className="text-[#4F46E5] font-mono">1.</span> Brand Knowledge Vault</h2>
-              <button onClick={handleAddGuideline} className="bg-[#4F46E5] text-white text-sm px-5 py-2 rounded-xl font-semibold hover:bg-[#4338CA] flex items-center gap-2 transition cursor-pointer">
-                <PlusCircle className="w-4 h-4"/> Add Guideline
-              </button>
+              <h2 className="text-lg font-bold text-slate-950 flex items-center gap-2">
+                <span className="text-[#4F46E5] font-mono">1.</span> Brand Knowledge Vault
+                {!isAdmin && <span className="text-[10px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-medium ml-2">Viewer Mode</span>}
+              </h2>
+              {isAdmin ? (
+                <button onClick={handleAddGuideline} className="bg-[#4F46E5] text-white text-sm px-5 py-2 rounded-xl font-semibold hover:bg-[#4338CA] flex items-center gap-2 transition cursor-pointer">
+                  <PlusCircle className="w-4 h-4"/> Add Guideline
+                </button>
+              ) : (
+                <span className="text-xs text-gray-400 italic">Admin required to add rules</span>
+              )}
             </div>
             
             <div className="space-y-4 pt-3 border-t border-gray-50">
-              <input type="text" value={guidelineTitle} onChange={e=>setGuidelineTitle(e.target.value)} placeholder="e.g., Promotional Claim Policy" className="w-full p-3 border border-gray-100 rounded-xl text-sm focus:ring-2 focus:ring-[#C7D2FE] bg-[#F9FAFB] text-slate-900" />
-              <textarea value={guidelineContent} onChange={e=>setGuidelineContent(e.target.value)} placeholder="Enter guideline details..." className="w-full p-3 border border-gray-100 rounded-xl text-sm h-20 resize-none focus:ring-2 focus:ring-[#C7D2FE] bg-[#F9FAFB] text-slate-900" />
+              <input 
+                type="text" 
+                value={guidelineTitle} 
+                onChange={e=>setGuidelineTitle(e.target.value)} 
+                placeholder={isAdmin ? "e.g., Promotional Claim Policy" : "Admin access required to add guidelines"} 
+                disabled={!isAdmin}
+                className="w-full p-3 border border-gray-100 rounded-xl text-sm focus:ring-2 focus:ring-[#C7D2FE] bg-[#F9FAFB] text-slate-900 disabled:opacity-60" 
+              />
+              <textarea 
+                value={guidelineContent} 
+                onChange={e=>setGuidelineContent(e.target.value)} 
+                placeholder={isAdmin ? "Enter guideline details..." : "Editors can view guidelines and run audits in the Compliance Scanner."} 
+                disabled={!isAdmin}
+                className="w-full p-3 border border-gray-100 rounded-xl text-sm h-20 resize-none focus:ring-2 focus:ring-[#C7D2FE] bg-[#F9FAFB] text-slate-900 disabled:opacity-60" 
+              />
             </div>
 
             <div className="pt-4 border-t border-gray-50 space-y-3">
@@ -491,8 +529,12 @@ export default function Home() {
                            </div>
                             <div className="flex items-center gap-2">
                                 <span className="text-xs bg-emerald-100 text-emerald-700 px-2.5 py-0.5 rounded-full font-medium">Active</span>
-                                <Edit2 onClick={() => handleEditGuideline(g)} className="w-4 h-4 text-gray-400 hover:text-slate-950 cursor-pointer" />
-                                <Trash2 onClick={() => handleDeleteGuideline(g.id)} className="w-4 h-4 text-gray-400 hover:text-rose-500 cursor-pointer" />
+                                {isAdmin && (
+                                  <>
+                                    <Edit2 onClick={() => handleEditGuideline(g)} className="w-4 h-4 text-gray-400 hover:text-slate-950 cursor-pointer" title="Edit Guideline" />
+                                    <Trash2 onClick={() => handleDeleteGuideline(g.id)} className="w-4 h-4 text-gray-400 hover:text-rose-500 cursor-pointer" title="Delete Guideline" />
+                                  </>
+                                )}
                             </div>
                         </div>
                     ))}
@@ -657,7 +699,9 @@ export default function Home() {
                     <span className="font-bold text-slate-950 text-sm">{g.title}</span>
                     <div className="flex items-center gap-2">
                       <span className="text-xs bg-emerald-100 text-emerald-700 px-2.5 py-0.5 rounded-full font-medium">Active</span>
-                      <button onClick={() => handleDeleteGuideline(g.id)} className="text-gray-400 hover:text-rose-500 text-xs cursor-pointer">Delete</button>
+                      {isAdmin && (
+                        <button onClick={() => handleDeleteGuideline(g.id)} className="text-gray-400 hover:text-rose-500 text-xs cursor-pointer">Delete</button>
+                      )}
                     </div>
                   </div>
                   <p className="text-xs text-gray-600 leading-relaxed">{g.content}</p>
