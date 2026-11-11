@@ -11,6 +11,7 @@ from openai import OpenAI
 from auth import router as auth_router, get_current_user, require_role
 from datetime import datetime
 import json
+from datetime import datetime, timezone
 
 app = FastAPI(title="BrandGuard AI API", version="1.0.0")
 
@@ -116,7 +117,7 @@ async def add_guideline(guideline: GuidelineCreate, current_user: dict = Depends
         "title": "Guideline Vault Updated",
         "message": f"New rule added: {guideline.title}.",
         "type": "info",
-        "timestamp": datetime.now().strftime("%H:%M"),
+        "timestamp": datetime.now(timezone.utc).strftime("%H:%M UTC"),
         "read": False
     }
     if username not in USER_NOTIFICATIONS:
@@ -266,7 +267,7 @@ If there are no issues, return status "PASS" and an empty issues list. Do not in
     # Create server-side audit log entry
     new_log = {
         "id": f"audit_{uuid.uuid4().hex[:8]}",
-        "timestamp": datetime.now().strftime("%H:%M:%S"),
+        "timestamp": datetime.now(timezone.utc).strftime("%H:%M UTC"),
         "textSnippet": request.text[:30] + "...",
         "fullText": request.text,
         "status": status,
@@ -284,7 +285,7 @@ If there are no issues, return status "PASS" and an empty issues list. Do not in
             "title": "Compliance Violation Detected",
             "message": f"Audit flagged {len(issues)} issue(s) in submitted text.",
             "type": "alert",
-            "timestamp": datetime.now().strftime("%H:%M"),
+            "timestamp": datetime.now(timezone.utc).strftime("%H:%M UTC"),
             "read": False
         }
         if username not in USER_NOTIFICATIONS:
