@@ -103,6 +103,31 @@ export default function Home() {
   }, []);
 
 
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
+  // Secure the route on mount
+  useEffect(() => {
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      router.push("/login");
+    } else {
+      setIsCheckingAuth(false);
+    }
+  }, [router]);
+
+  // While verifying auth, render a clean loading screen instead of the dashboard
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen bg-[#F4F6FA] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-4 border-[#4F46E5] border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-sm font-medium text-gray-500">Securing BrandGuard Session...</p>
+        </div>
+      </div>
+    );
+  }
+
+
   const handleIgnoreIssue = (indexToRemove: number) => {
     if (!auditResult) return;
     const updatedIssues = auditResult.issues.filter((_, idx) => idx !== indexToRemove);

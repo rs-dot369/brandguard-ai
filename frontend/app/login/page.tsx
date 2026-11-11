@@ -10,11 +10,13 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setLoading(true);
 
     if (isRegistering) {
       // Handle Registration
@@ -33,6 +35,8 @@ export default function LoginPage() {
         }
       } catch (err) {
         setError("Error connecting to server");
+      } finally {
+        setLoading(false);
       }
     } else {
       // Handle Login
@@ -48,22 +52,21 @@ export default function LoginPage() {
         });
         const data = await res.json();
         if (res.ok) {
-        localStorage.setItem("access_token", data.access_token);
-        localStorage.setItem("user_name", data.full_name || username);
-        localStorage.setItem("user_email", username);
-        localStorage.setItem("user_role", data.role || "editor");
-        router.push("/");
+          localStorage.setItem("access_token", data.access_token);
+          localStorage.setItem("user_name", data.full_name || username);
+          localStorage.setItem("user_email", username);
+          localStorage.setItem("user_role", data.role || "editor");
+          router.push("/");
         } else {
           setError(data.detail || "Invalid credentials");
+          setLoading(false);
         }
       } catch (err) {
         setError("Error connecting to server");
+        setLoading(false);
       }
     }
   };
-
-
-  
 
   return (
     <main className="min-h-screen bg-[#0F172A] flex items-center justify-center p-4 font-sans text-slate-100">
@@ -88,7 +91,8 @@ export default function LoginPage() {
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 required
-                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-sm text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none"
+                disabled={loading}
+                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-sm text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none disabled:opacity-50"
                 placeholder="Anurag Kumar"
               />
             </div>
@@ -101,7 +105,8 @@ export default function LoginPage() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-sm text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none"
+              disabled={loading}
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-sm text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none disabled:opacity-50"
               placeholder="name@brandguard.ai"
             />
           </div>
@@ -113,30 +118,41 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-sm text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none"
+              disabled={loading}
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-sm text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none disabled:opacity-50"
               placeholder="••••••••"
             />
           </div>
 
           <button
             type="submit"
-            className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-lg transition duration-200 text-sm"
+            disabled={loading}
+            className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-lg transition duration-200 text-sm flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
           >
-            {isRegistering ? "Register Account" : "Sign In"}
+            {loading ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <span>Connecting to Server...</span>
+              </>
+            ) : (
+              isRegistering ? "Register Account" : "Sign In →"
+            )}
           </button>
         </form>
 
         <div className="text-center pt-2 border-t border-slate-800">
           <button
+            type="button"
             onClick={() => { setIsRegistering(!isRegistering); setError(""); }}
-            className="text-xs text-indigo-400 hover:underline"
+            disabled={loading}
+            className="text-xs text-indigo-400 hover:underline cursor-pointer"
           >
             {isRegistering ? "Already have an account? Sign In" : "Need an account? Register here →"}
           </button>
         </div>
 
         {!isRegistering && (
-          <div className="text-[11px] text-slate-500 text-center space-y-1 pt-2">
+          <div className="text-[12px] text-slate-500 text-center space-y-1 pt-2">
             <p>Demo Accounts:</p>
             <p>Admin: admin@brandguard.ai / admin123</p>
             <p>Editor: editor@brandguard.ai / editor123</p>
