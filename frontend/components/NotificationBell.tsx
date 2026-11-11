@@ -23,16 +23,23 @@ export default function NotificationBell() {
     try {
       const token = localStorage.getItem("access_token");
       if (!token) return;
+
       const res = await fetch(`${API_URL}/api/notifications`, {
         headers: { Authorization: `Bearer ${token}` }
       });
+
+      // Handle invalid or expired tokens gracefully without spamming terminal logs
+      if (res.status === 401) {
+        return;
+      }
+
       if (res.ok) {
         const data = await res.json();
         setNotifications(data);
         setUnreadCount(data.filter((n: any) => !n.read).length);
       }
     } catch (err) {
-      console.error("Failed to load notifications", err);
+      // Silently catch network drops or cold start timeouts
     }
   };
 
@@ -46,6 +53,8 @@ export default function NotificationBell() {
   const markAsRead = async (id: string) => {
     try {
       const token = localStorage.getItem("access_token");
+      if (!token) return;
+
       await fetch(`${API_URL}/api/notifications/${id}/read`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` }
@@ -61,7 +70,7 @@ export default function NotificationBell() {
     <div className="relative" ref={dropdownRef}>
       <button 
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 rounded-full transition focus:outline-none"
+        className="relative p-2 text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 rounded-full transition focus:outline-none cursor-pointer"
       >
         <svg className="w-5 h-5 text-slate-600 hover:text-[#4F46E5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -74,7 +83,7 @@ export default function NotificationBell() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden">
+        <div className="absolute right-0 mt-2 w-80 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden text-left">
           <div className="p-3 bg-gray-900 border-b border-gray-700 flex justify-between items-center">
             <span className="font-semibold text-sm text-white">Notifications & Alerts</span>
             <span className="text-xs text-indigo-400">{unreadCount} unread</span>
@@ -89,11 +98,11 @@ export default function NotificationBell() {
                     <span className="font-medium text-white">{notif.title}</span>
                     <span className="text-[10px] text-gray-400">{notif.timestamp}</span>
                   </div>
-                  <p className="test-xs text-gray-300 mb-2">{notif.message}</p>
+                  <p className="text-xs text-gray-300 mb-2">{notif.message}</p>
                   {!notif.read && (
                     <button 
                       onClick={() => markAsRead(notif.id)}
-                      className="text-[10px] text-indigo-400 hover:text-indigo-300 font-semibold"
+                      className="text-[10px] text-indigo-400 hover:text-indigo-300 font-semibold cursor-pointer"
                     >
                       Mark as read ✓
                     </button>
