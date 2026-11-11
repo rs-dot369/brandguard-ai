@@ -67,31 +67,32 @@ export default function Home() {
     weekly_trend: "+12% vs last week"
   });
 
-  const router = useRouter();
-  const profileRef = useRef<HTMLDivElement>(null);
-
   const [userName, setUserName] = useState("User");
   const [userEmail, setUserEmail] = useState("user@brandguard.ai");
   const [userRole, setUserRole] = useState("Editor");
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
-  // Secure route and load profile on mount
+  const router = useRouter();
+  const profileRef = useRef<HTMLDivElement>(null);
+
+  // --- ALL HOOKS DECLARED UNCONDITIONALLY AT THE TOP ---
+
   useEffect(() => {
     const token = localStorage.getItem("access_token");
     if (!token) {
       router.push("/login");
-      return;
+    } else {
+      setIsCheckingAuth(false);
+      const name = localStorage.getItem("user_name");
+      const email = localStorage.getItem("user_email");
+      const role = localStorage.getItem("user_role");
+      
+      if (name) setUserName(name);
+      if (email) setUserEmail(email);
+      if (role) setUserRole(role.charAt(0).toUpperCase() + role.slice(1));
     }
-
-    const name = localStorage.getItem("user_name");
-    const email = localStorage.getItem("user_email");
-    const role = localStorage.getItem("user_role");
-    
-    if (name) setUserName(name);
-    if (email) setUserEmail(email);
-    if (role) setUserRole(role.charAt(0).toUpperCase() + role.slice(1));
   }, [router]);
 
-  // Click outside handler for profile dropdown
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
@@ -101,42 +102,6 @@ export default function Home() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
-
-  // Secure the route on mount
-  useEffect(() => {
-    const token = localStorage.getItem("access_token");
-    if (!token) {
-      router.push("/login");
-    } else {
-      setIsCheckingAuth(false);
-    }
-  }, [router]);
-
-  // While verifying auth, render a clean loading screen instead of the dashboard
-  if (isCheckingAuth) {
-    return (
-      <div className="min-h-screen bg-[#F4F6FA] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-4 border-[#4F46E5] border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-sm font-medium text-gray-500">Securing BrandGuard Session...</p>
-        </div>
-      </div>
-    );
-  }
-
-
-  const handleIgnoreIssue = (indexToRemove: number) => {
-    if (!auditResult) return;
-    const updatedIssues = auditResult.issues.filter((_, idx) => idx !== indexToRemove);
-    setAuditResult({
-      ...auditResult,
-      issues: updatedIssues,
-      status: updatedIssues.length === 0 ? "PASS" : auditResult.status
-    });
-  };
 
   async function fetchGuidelines() {
     try {
@@ -187,6 +152,28 @@ export default function Home() {
       localStorage.setItem("brandguard_audit_history", JSON.stringify(auditHistory));
     }
   }, [auditHistory]);
+
+  // --- CONDITIONAL RETURN PLACED SAFELY AFTER ALL HOOKS ---
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen bg-[#F4F6FA] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-4 border-[#4F46E5] border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-sm font-medium text-gray-500">Securing BrandGuard Session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const handleIgnoreIssue = (indexToRemove: number) => {
+    if (!auditResult) return;
+    const updatedIssues = auditResult.issues.filter((_, idx) => idx !== indexToRemove);
+    setAuditResult({
+      ...auditResult,
+      issues: updatedIssues,
+      status: updatedIssues.length === 0 ? "PASS" : auditResult.status
+    });
+  };
 
   const handleAddGuideline = async () => {
     if (!guidelineTitle.trim() || !guidelineContent.trim()) {
@@ -438,7 +425,7 @@ export default function Home() {
                         localStorage.removeItem("user_email");
                         window.location.href = "/login";
                       }}
-                      className="w-full text-left px-4 py-2 text-sm text-rose-600 hover:bg-rose-50 font-medium transition flex items-center gap-2"
+                      className="w-full text-left px-4 py-2 text-sm text-rose-600 hover:bg-rose-50 font-medium transition flex items-center gap-2 cursor-pointer"
                     >
                       🚪 Sign Out / Logout
                     </button>
@@ -476,7 +463,7 @@ export default function Home() {
           <section id="vault-section" className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-5">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold text-slate-950 flex items-center gap-2"><span className="text-[#4F46E5] font-mono">1.</span> Brand Knowledge Vault</h2>
-              <button onClick={handleAddGuideline} className="bg-[#4F46E5] text-white text-sm px-5 py-2 rounded-xl font-semibold hover:bg-[#4338CA] flex items-center gap-2 transition">
+              <button onClick={handleAddGuideline} className="bg-[#4F46E5] text-white text-sm px-5 py-2 rounded-xl font-semibold hover:bg-[#4338CA] flex items-center gap-2 transition cursor-pointer">
                 <PlusCircle className="w-4 h-4"/> Add Guideline
               </button>
             </div>
@@ -518,7 +505,7 @@ export default function Home() {
           <section id="scanner-section" className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
             <div className="flex items-center justify-between mb-5">
                 <h2 className="text-lg font-bold text-slate-950 flex items-center gap-2"><span className="text-[#4F46E5] font-mono">2.</span> Compliance Scanner</h2>
-                <button onClick={()=>setContentToAudit("")} className="text-gray-400 hover:text-rose-500 text-sm font-medium">Clear</button>
+                <button onClick={()=>setContentToAudit("")} className="text-gray-400 hover:text-rose-500 text-sm font-medium cursor-pointer">Clear</button>
             </div>
             <form onSubmit={handleAuditContent} className="flex-1 flex flex-col justify-between">
                 <div className="relative flex-1">
@@ -531,7 +518,7 @@ export default function Home() {
                     />
                      <div className="absolute bottom-4 right-4 text-xs text-gray-400">{contentToAudit.length} characters</div>
                 </div>
-                <button type="submit" disabled={loading} className="w-full mt-5 bg-[#4F46E5] text-white py-3.5 rounded-2xl font-bold text-lg hover:bg-[#4338CA] transition flex items-center justify-center gap-2 shadow-md">
+                <button type="submit" disabled={loading} className="w-full mt-5 bg-[#4F46E5] text-white py-3.5 rounded-2xl font-bold text-lg hover:bg-[#4338CA] transition flex items-center justify-center gap-2 shadow-md cursor-pointer disabled:opacity-50">
                   {loading ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <ShieldCheck className="w-6 h-6" />}
                   {loading ? "Scanning Content via RAG..." : "Run Audit →"}
                 </button>
@@ -558,7 +545,7 @@ export default function Home() {
                           <div className="flex items-center gap-2">
                               <span className={`text-xs ${log.status === "PASS" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"} px-2.5 py-0.5 rounded-full font-bold`}>{log.status}</span>
                               <span className="text-sm font-medium text-slate-950">{log.issuesCount} issues</span>
-                              <button onClick={() => setExpandedLogId(expandedLogId === log.id ? null : log.id)} className="p-1 hover:bg-gray-200 rounded">
+                              <button onClick={() => setExpandedLogId(expandedLogId === log.id ? null : log.id)} className="p-1 hover:bg-gray-200 rounded cursor-pointer">
                                 {expandedLogId === log.id ? <ChevronUp className="w-4 h-4 text-gray-600"/> : <ChevronDown className="w-4 h-4 text-gray-600"/>}
                               </button>
                           </div>
@@ -580,7 +567,7 @@ export default function Home() {
              <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-slate-950 flex items-center gap-2"><span className="text-[#4F46E5] font-mono">4.</span> Audit Results</h2>
                 {auditResult && (
-                    <button onClick={exportReport} className="bg-slate-900 text-white text-sm px-4 py-1.5 rounded-xl font-medium hover:bg-slate-950 transition flex items-center gap-1.5 shadow-sm">
+                    <button onClick={exportReport} className="bg-slate-900 text-white text-sm px-4 py-1.5 rounded-xl font-medium hover:bg-slate-950 transition flex items-center gap-1.5 shadow-sm cursor-pointer">
                         <Download className="w-4 h-4"/> Download Full Report
                     </button>
                 )}
@@ -602,7 +589,7 @@ export default function Home() {
                       {auditResult.status === "FLAGGED" && !isApproved && (
                         <button 
                           onClick={() => setIsApproved(true)}
-                          className="bg-emerald-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-emerald-700 transition">
+                          className="bg-emerald-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-emerald-700 transition cursor-pointer">
                           Override & Approve
                         </button>
                       )}
@@ -626,7 +613,7 @@ export default function Home() {
                               <button 
                                 type="button"
                                 onClick={() => handleApplyFix(issue.suggested_fix)}
-                                className="bg-white text-[#4F46E5] border border-[#C7D2FE] px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-[#EEF2FF] transition">
+                                className="bg-white text-[#4F46E5] border border-[#C7D2FE] px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-[#EEF2FF] transition cursor-pointer">
                                 Apply Fix
                               </button>
                               <button 
@@ -658,7 +645,7 @@ export default function Home() {
               <h3 className="text-lg font-bold text-slate-950 flex items-center gap-2">
                 <BookOpen className="w-5 h-5 text-[#4F46E5]" /> All Stored Brand Guidelines ({guidelines.length})
               </h3>
-              <button onClick={() => setShowAllGuidelinesModal(false)} className="text-gray-400 hover:text-slate-950 p-1 rounded-lg">
+              <button onClick={() => setShowAllGuidelinesModal(false)} className="text-gray-400 hover:text-slate-950 p-1 rounded-lg cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -680,7 +667,7 @@ export default function Home() {
               )}
             </div>
             <div className="px-6 py-4 border-t border-gray-100 flex justify-end bg-white">
-              <button onClick={() => setShowAllGuidelinesModal(false)} className="bg-[#4F46E5] text-white text-sm px-5 py-2 rounded-xl font-semibold hover:bg-[#4338CA]">
+              <button onClick={() => setShowAllGuidelinesModal(false)} className="bg-[#4F46E5] text-white text-sm px-5 py-2 rounded-xl font-semibold hover:bg-[#4338CA] cursor-pointer">
                 Close Modal
               </button>
             </div>
@@ -696,7 +683,7 @@ export default function Home() {
               <h3 className="text-lg font-bold text-slate-950 flex items-center gap-2">
                 <History className="w-5 h-5 text-[#4F46E5]" /> Complete Audit History Log ({auditHistory.length})
               </h3>
-              <button onClick={() => setShowAllHistoryModal(false)} className="text-gray-400 hover:text-slate-950 p-1 rounded-lg">
+              <button onClick={() => setShowAllHistoryModal(false)} className="text-gray-400 hover:text-slate-950 p-1 rounded-lg cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -718,7 +705,7 @@ export default function Home() {
               )}
             </div>
             <div className="px-6 py-4 border-t border-gray-100 flex justify-end bg-white">
-              <button onClick={() => setShowAllHistoryModal(false)} className="bg-[#4F46E5] text-white text-sm px-5 py-2 rounded-xl font-semibold hover:bg-[#4338CA]">
+              <button onClick={() => setShowAllHistoryModal(false)} className="bg-[#4F46E5] text-white text-sm px-5 py-2 rounded-xl font-semibold hover:bg-[#4338CA] cursor-pointer">
                 Close Modal
               </button>
             </div>
