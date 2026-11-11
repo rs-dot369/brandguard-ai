@@ -1,4 +1,4 @@
-const API_URL = "http://127.0.0.1:8000"; // Switch to Render backendURL later
+const API_URL = "https://brandguard-ai-backend-m9r2.onrender.com"; // Switch to Render backendURL later
 
 export async function loginUser(username, password) {
   const formData = new URLSearchParams();

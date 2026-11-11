@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/"; // "https://brandguard-ai-backend-m9r2.onrender.com";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://brandguard-ai-backend-m9r2.onrender.com";
 
 export default function NotificationBell() {
   const [notifications, setNotifications] = useState<any[]>([]);
