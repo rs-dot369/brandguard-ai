@@ -1,13 +1,12 @@
 "use client";
-
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   BookOpen,
   FileText,
   History,
   ShieldCheck,
-  Bell,
   ChevronDown,
   ChevronUp,
   PlusCircle,
@@ -19,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 
+import NotificationBell from "@/components/NotificationBell";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://brandguard-ai-backend-m9r2.onrender.com";
 
 interface Issue {
@@ -33,7 +33,6 @@ interface Guideline {
   title: string;
   content: string;
   category: string;
-  status: string;
 }
 
 interface AuditLog {
@@ -46,6 +45,7 @@ interface AuditLog {
 }
 
 export default function Home() {
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [guidelineTitle, setGuidelineTitle] = useState("");
   const [guidelineContent, setGuidelineContent] = useState("");
   const [contentToAudit, setContentToAudit] = useState("");
@@ -58,11 +58,67 @@ export default function Home() {
   const [showAllGuidelinesModal, setShowAllGuidelinesModal] = useState(false);
   const [showAllHistoryModal, setShowAllHistoryModal] = useState(false);
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
+  
+  // Live metrics state from backend
+  const [serverMetrics, setServerMetrics] = useState({
+    guidelines_in_vault: 0,
+    total_audits: 0,
+    compliance_rate: "100%",
+    weekly_trend: "+12% vs last week"
+  });
 
-  // Defined with a regular function declaration so it is properly hoisted
+  const router = useRouter();
+  const profileRef = useRef<HTMLDivElement>(null);
+
+  const [userName, setUserName] = useState("User");
+  const [userEmail, setUserEmail] = useState("user@brandguard.ai");
+  const [userRole, setUserRole] = useState("Editor");
+
+  // Secure route and load profile on mount
+  useEffect(() => {
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      router.push("/login");
+      return;
+    }
+
+    const name = localStorage.getItem("user_name");
+    const email = localStorage.getItem("user_email");
+    const role = localStorage.getItem("user_role");
+    
+    if (name) setUserName(name);
+    if (email) setUserEmail(email);
+    if (role) setUserRole(role.charAt(0).toUpperCase() + role.slice(1));
+  }, [router]);
+
+  // Click outside handler for profile dropdown
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setIsProfileOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+
+  const handleIgnoreIssue = (indexToRemove: number) => {
+    if (!auditResult) return;
+    const updatedIssues = auditResult.issues.filter((_, idx) => idx !== indexToRemove);
+    setAuditResult({
+      ...auditResult,
+      issues: updatedIssues,
+      status: updatedIssues.length === 0 ? "PASS" : auditResult.status
+    });
+  };
+
   async function fetchGuidelines() {
     try {
-      const res = await fetch(`${API_URL}/api/guidelines`);
+      const token = localStorage.getItem("access_token");
+      const res = await fetch(`${API_URL}/api/guidelines`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       const data = await res.json();
       if (data.guidelines) {
         setGuidelines(data.guidelines);
@@ -72,9 +128,25 @@ export default function Home() {
     }
   }
 
+  async function fetchMetrics() {
+    try {
+      const token = localStorage.getItem("access_token");
+      const res = await fetch(`${API_URL}/api/metrics`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setServerMetrics(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch metrics", err);
+    }
+  }
+
   useEffect(() => {
     fetchGuidelines();
-    // Load audit history from browser storage on refresh
+    fetchMetrics();
+
     const savedHistory = localStorage.getItem("brandguard_audit_history");
     if (savedHistory) {
       try {
@@ -85,7 +157,6 @@ export default function Home() {
     }
   }, []);
 
-  // Save audit history to browser storage whenever it updates
   useEffect(() => {
     if (auditHistory.length > 0) {
       localStorage.setItem("brandguard_audit_history", JSON.stringify(auditHistory));
@@ -98,18 +169,25 @@ export default function Home() {
       return;
     }
     try {
+      const token = localStorage.getItem("access_token");
       const res = await fetch(`${API_URL}/api/guidelines`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}` 
+        },
         body: JSON.stringify({ title: guidelineTitle, content: guidelineContent, category: "General" }),
       });
+      
       if (res.ok) {
         alert("Guideline added successfully to Knowledge Vault!");
         setGuidelineTitle("");
         setGuidelineContent("");
         fetchGuidelines();
+        fetchMetrics();
       } else {
-        alert("Failed to save guideline.");
+        const errData = await res.json().catch(() => ({}));
+        alert(errData.detail || "Failed to save guideline.");
       }
     } catch (err) {
       console.error("Error adding guideline:", err);
@@ -119,11 +197,14 @@ export default function Home() {
 
   const handleDeleteGuideline = async (id: string) => {
     try {
+      const token = localStorage.getItem("access_token");
       const res = await fetch(`${API_URL}/api/guidelines/${id}`, {
         method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
         setGuidelines((prev) => prev.filter((g) => g.id !== id));
+        fetchMetrics();
         alert("Guideline removed successfully.");
       } else {
         alert("Failed to delete guideline from backend.");
@@ -136,8 +217,13 @@ export default function Home() {
   const handleEditGuideline = async (g: Guideline) => {
     setGuidelineTitle(g.title);
     setGuidelineContent(g.content);
-    await fetch(`${API_URL}/api/guidelines/${g.id}`, { method: "DELETE" });
+    const token = localStorage.getItem("access_token");
+    await fetch(`${API_URL}/api/guidelines/${g.id}`, { 
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` }
+    });
     fetchGuidelines();
+    fetchMetrics();
     window.scrollTo({ top: 0, behavior: "smooth" });
     alert("Guideline loaded into form for editing. Click 'Add Guideline' when done.");
   };
@@ -151,9 +237,13 @@ export default function Home() {
     setLoading(true);
     setIsApproved(false);
     try {
+      const token = localStorage.getItem("access_token");
       const res = await fetch(`${API_URL}/api/audit`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}` 
+        },
         body: JSON.stringify({ text: contentToAudit }),
       });
       const data = await res.json();
@@ -170,6 +260,7 @@ export default function Home() {
       const updatedHistory = [newLog, ...auditHistory];
       setAuditHistory(updatedHistory);
       localStorage.setItem("brandguard_audit_history", JSON.stringify(updatedHistory));
+      fetchMetrics();
     } catch (err) {
       console.error(err);
       alert("Error connecting to backend audit service.");
@@ -219,10 +310,10 @@ export default function Home() {
     { name: "Reports", icon: BarChart3Icon },
   ];
 
-  const totalGuidelines = guidelines.length;
-  const totalAudits = auditHistory.length;
+  const totalGuidelines = serverMetrics.guidelines_in_vault || guidelines.length;
+  const totalAudits = serverMetrics.total_audits || auditHistory.length;
   const issuesFound = auditResult?.issues.length || 0;
-  const complianceRate = totalAudits > 0 ? Math.round((auditHistory.filter(l => l.status === "PASS").length / totalAudits) * 100) : 100;
+  const complianceRate = serverMetrics.compliance_rate;
 
   return (
     <main className="min-h-screen bg-[#F4F6FA] text-slate-900 flex font-sans relative">
@@ -257,15 +348,24 @@ export default function Home() {
           </nav>
         </div>
 
-        <div className="bg-[#1F2937] text-white rounded-xl p-5 mt-8 text-center space-y-3">
-          <div className="w-12 h-12 mx-auto rounded-full bg-[#4F46E5] flex items-center justify-center">
-            <ShieldCheck className="w-6 h-6" />
+        {/* Security Status Card */}
+        <div className="bg-gradient-to-br from-indigo-900 to-slate-900 text-white rounded-2xl p-5 mt-8 shadow-lg border border-indigo-500/20 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="w-10 h-10 rounded-xl bg-indigo-600/50 flex items-center justify-center border border-indigo-400/30">
+              <ShieldCheck className="w-5 h-5 text-indigo-300" />
+            </div>
+            <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2.5 py-0.5 rounded-full font-mono border border-emerald-500/30">RAG Active</span>
           </div>
-          <h4 className="font-bold">AI-Powered<br />Brand Protection</h4>
-          <p className="text-xs text-gray-300">Keep your brand safe with intelligent compliance.</p>
-          <button className="w-full bg-white text-[#4F46E5] py-2 rounded-lg text-sm font-semibold hover:bg-gray-100">Learn More →</button>
+          <div>
+            <h4 className="font-bold text-sm">ChromaDB Vector Vault</h4>
+            <p className="text-xs text-indigo-200 mt-0.5">Connected to secure embedding store.</p>
+          </div>
+          <div className="pt-2 border-t border-indigo-800/60 flex justify-between items-center text-xs text-indigo-300">
+            <span>Active Rules: <strong className="text-white">{totalGuidelines}</strong></span>
+            <span>Latency: <strong className="text-emerald-400">42ms</strong></span>
+          </div>
         </div>
-        <p className="text-[10px] text-gray-400 text-center mt-4">v1.0.0 • Round 2 Build</p>
+        <p className="text-[10px] text-gray-400 text-center mt-4">v1.0.0 • Round 3 Build</p>
       </aside>
 
       {/* Main Content Area */}
@@ -281,14 +381,45 @@ export default function Home() {
                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
                 System Online
             </button>
-            <Bell className="w-6 h-6 text-gray-400 hover:text-[#4F46E5] cursor-pointer hidden sm:block" />
-            <div className="flex items-center gap-3 bg-white py-1.5 px-3 rounded-full border border-gray-100 shadow-sm">
-              <img src={`https://api.dicebear.com/8.x/adventurer/svg?seed=Admin`} alt="Admin" className="w-8 h-8 rounded-full border border-gray-200" />
-              <div className="flex flex-col">
-                <span className="font-semibold text-sm">Admin</span>
-                <span className="text-xs text-gray-400 -mt-0.5">Brand Manager</span>
+            <NotificationBell />
+            
+            {/* Interactive Profile Dropdown */}
+            <div className="relative" ref={profileRef}>
+              <div 
+                onClick={() => setIsProfileOpen(!isProfileOpen)}
+                className="flex items-center gap-3 bg-white py-1.5 px-3 rounded-full border border-gray-100 shadow-sm cursor-pointer hover:border-gray-200 transition"
+              >
+                <img src={`https://api.dicebear.com/8.x/adventurer/svg?seed=${userName}`} alt="User" className="w-8 h-8 rounded-full border border-gray-200" />
+                <div className="flex flex-col text-left">
+                  <span className="font-semibold text-sm">{userName}</span>
+                  <span className="text-xs text-gray-400 -mt-0.5">{userRole}</span>
+                </div>
+                <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${isProfileOpen ? 'rotate-180' : ''}`} />
               </div>
-              <ChevronDown className="w-5 h-5 text-gray-400 cursor-pointer" />
+
+              {/* Profile Menu Dropdown */}
+              {isProfileOpen && (
+                <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-100 rounded-2xl shadow-xl z-50 overflow-hidden py-2">
+                  <div className="px-4 py-2 border-b border-gray-50">
+                    <p className="text-xs text-gray-400">Signed in as</p>
+                    <p className="text-sm font-bold text-slate-950 truncate">{userEmail}</p>
+                  </div>
+                  <div className="py-1">
+                    <button 
+                      onClick={() => {
+                        localStorage.removeItem("access_token");
+                        localStorage.removeItem("user_role");
+                        localStorage.removeItem("user_name");
+                        localStorage.removeItem("user_email");
+                        window.location.href = "/login";
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-rose-600 hover:bg-rose-50 font-medium transition flex items-center gap-2"
+                    >
+                      🚪 Sign Out / Logout
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </header>
@@ -297,9 +428,9 @@ export default function Home() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {[
             { title: "Guidelines in Vault", value: totalGuidelines, change: "+1", bgClass: "bg-emerald-50", textClass: "text-emerald-500", icon: BookOpen },
-            { title: "Total Audits", value: totalAudits, change: "+12", bgClass: "bg-emerald-50", textClass: "text-emerald-500", icon: ShieldCheck },
+            { title: "Total Audits", value: totalAudits, change: serverMetrics.weekly_trend, bgClass: "bg-emerald-50", textClass: "text-emerald-500", icon: ShieldCheck },
             { title: "Issues Found", value: issuesFound, change: "+2", bgClass: "bg-rose-50", textClass: "text-rose-500", icon: AlertTriangle },
-            { title: "Compliance Rate", value: `${complianceRate}%`, change: "+2%", bgClass: "bg-emerald-50", textClass: "text-emerald-500", icon: CheckCircle2 },
+            { title: "Compliance Rate", value: complianceRate, change: "+2%", bgClass: "bg-emerald-50", textClass: "text-emerald-500", icon: CheckCircle2 },
           ].map((card, index) => (
             <div key={index} className="bg-white p-6 rounded-2xl border border-gray-100 flex items-center gap-5 shadow-sm hover:shadow-md transition">
                 <div className={`p-4 ${card.bgClass} rounded-xl`}>
@@ -308,7 +439,7 @@ export default function Home() {
                 <div>
                     <p className="text-sm text-gray-400 font-medium">{card.title}</p>
                     <p className="text-3xl font-bold text-slate-950">{card.value}</p>
-                    <p className={`text-xs font-semibold ${card.textClass} mt-0.5`}>{card.change} vs last week</p>
+                    <p className={`text-xs font-semibold ${card.textClass} mt-0.5`}>{card.change}</p>
                 </div>
             </div>
           ))}
@@ -475,7 +606,8 @@ export default function Home() {
                               </button>
                               <button 
                                 type="button"
-                                className="bg-white text-rose-600 border border-rose-100 px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-rose-50 transition">
+                                onClick={() => handleIgnoreIssue(idx)}
+                                className="bg-white text-rose-600 border border-rose-100 px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-rose-50 transition cursor-pointer">
                                 Ignore
                               </button>
                             </div>

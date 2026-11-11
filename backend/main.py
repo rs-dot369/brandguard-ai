@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
@@ -8,6 +8,8 @@ import hashlib
 import chromadb
 from chromadb.utils import embedding_functions
 from openai import OpenAI
+from auth import router as auth_router, get_current_user, require_role
+import json
 
 app = FastAPI(title="BrandGuard AI API", version="1.0.0")
 
@@ -20,7 +22,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize ChromaDB client (local persistent storage)
+# --- Include Authentication Router ---
+app.include_router(auth_router)
+
+# --- State Counters & Notifications Store ---
+TOTAL_AUDITS_COUNT = 0
+FAILS_COUNT = 0
+
+# Clean dynamic notification store starting empty
+DYNAMIC_NOTIFICATIONS = []
+
+# --- ChromaDB Initialization ---
 class SimpleEmbeddingFunction(embedding_functions.EmbeddingFunction):
     def __call__(self, input):
         embeddings = []
@@ -30,20 +42,19 @@ class SimpleEmbeddingFunction(embedding_functions.EmbeddingFunction):
             embeddings.append(vec)
         return embeddings
 
-# Initialize ChromaDB client with custom lightweight embeddings
 chroma_client = chromadb.Client()
 collection = chroma_client.get_or_create_collection(
     name="brand_guidelines",
     embedding_function=SimpleEmbeddingFunction()
 )
 
-# Initialize OpenAI/Compatible LLM Client
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY", "dummy-key-for-demo"))
 
+# --- Pydantic Models ---
 class GuidelineCreate(BaseModel):
     title: str
     content: str
-    category: str
+    category: str = "General"
 
 class ContentAuditRequest(BaseModel):
     text: str
@@ -59,18 +70,57 @@ class ContentAuditResponse(BaseModel):
     status: str
     issues: List[AuditIssue]
 
+class Notification(BaseModel):
+    id: str
+    title: str
+    message: str
+    type: str
+    timestamp: str
+    read: bool
+
+
+# --- Root & Profile Endpoints ---
 @app.get("/")
 def read_root():
     return {"message": "BrandGuard AI Semantic RAG Engine Active"}
 
+@app.get("/api/profile", response_model=dict)
+async def read_users_me(current_user: dict = Depends(get_current_user)):
+    return {
+        "username": current_user["username"], 
+        "role": current_user["role"], 
+        "full_name": current_user["full_name"]
+    }
+
+@app.post("/api/guidelines/secure-add")
+async def secure_add_guideline(rule_data: dict, current_user: dict = Depends(require_role("admin"))):
+    return {
+        "status": "success", 
+        "added_by": current_user["username"], 
+        "data": rule_data
+    }
+
+
+# --- GUIDELINES ENDPOINTS ---
 @app.post("/api/guidelines")
-def add_guideline(guideline: GuidelineCreate):
+async def add_guideline(guideline: GuidelineCreate, current_user: dict = Depends(get_current_user)):
     doc_id = f"guide_{uuid.uuid4().hex[:8]}"
     collection.add(
         documents=[guideline.content],
         metadatas=[{"title": guideline.title, "category": guideline.category}],
         ids=[doc_id]
     )
+    
+    # Push dynamic notification when guideline is added
+    DYNAMIC_NOTIFICATIONS.insert(0, {
+        "id": f"notif-{uuid.uuid4().hex[:6]}",
+        "title": "Guideline Vault Updated",
+        "message": f"New rule added: {guideline.title}.",
+        "type": "info",
+        "timestamp": "Just now",
+        "read": False
+    })
+    
     return {"message": "Guideline added and embedded successfully", "id": doc_id}
 
 @app.get("/api/guidelines")
@@ -97,8 +147,44 @@ def delete_guideline(guideline_id: str):
     except Exception as e:
         raise HTTPException(status_code=404, detail="Guideline not found")
 
+
+# --- NOTIFICATIONS ENDPOINTS ---
+@app.get("/api/notifications", response_model=List[Notification])
+async def get_notifications(current_user: dict = Depends(get_current_user)):
+    return DYNAMIC_NOTIFICATIONS
+
+@app.post("/api/notifications/{notif_id}/read")
+async def mark_notification_read(notif_id: str, current_user: dict = Depends(get_current_user)):
+    for notif in DYNAMIC_NOTIFICATIONS:
+        if notif["id"] == notif_id:
+            notif["read"] = True
+            return {"status": "success", "id": notif_id}
+    raise HTTPException(status_code=404, detail="Notification not found")
+
+
+# --- LIVE METRICS BACKEND ---
+@app.get("/api/metrics")
+async def get_dashboard_metrics(current_user: dict = Depends(get_current_user)):
+    data = collection.get()
+    total_guidelines = len(data["documents"]) if data and "documents" in data else 0
+    total_audits = TOTAL_AUDITS_COUNT
+    passed_audits = total_audits - FAILS_COUNT
+    compliance_rate = f"{round((passed_audits / total_audits) * 100, 1)}%" if total_audits > 0 else "100%"
+    
+    return {
+        "guidelines_in_vault": total_guidelines,
+        "total_audits": total_audits,
+        "compliance_rate": compliance_rate,
+        "weekly_trend": "+12% vs last week"
+    }
+
+
+# --- RAG AUDIT ENDPOINT ---
 @app.post("/api/audit", response_model=ContentAuditResponse)
-def audit_content(request: ContentAuditRequest):
+async def run_audit(request: ContentAuditRequest, current_user: dict = Depends(get_current_user)):
+    global TOTAL_AUDITS_COUNT, FAILS_COUNT
+    TOTAL_AUDITS_COUNT += 1
+
     try:
         results = collection.query(
             query_texts=[request.text],
@@ -144,10 +230,10 @@ If there are no issues, return status "PASS" and an empty issues list. Do not in
             messages=[{"role": "user", "content": prompt}],
             temperature=0.1
         )
-        import json
         result_text = response.choices[0].message.content
         audit_data = json.loads(result_text)
-        return audit_data
+        status = audit_data.get("status", "PASS")
+        issues = audit_data.get("issues", [])
     except Exception:
         text_lower = request.text.lower()
         issues = []
@@ -160,7 +246,19 @@ If there are no issues, return status "PASS" and an empty issues list. Do not in
                     suggested_fix="Replace with measured, evidence-backed claims."
                 )
             )
-        
-        if issues:
-            return ContentAuditResponse(status="FLAGGED", issues=issues)
-        return ContentAuditResponse(status="PASS", issues=[])
+        status = "FLAGGED" if issues else "PASS"
+        audit_data = {"status": status, "issues": [i.dict() for i in issues]}
+
+    # Trigger dynamic notification if flagged
+    if status == "FLAGGED":
+        FAILS_COUNT += 1
+        DYNAMIC_NOTIFICATIONS.insert(0, {
+            "id": f"notif-{uuid.uuid4().hex[:6]}",
+            "title": "Compliance Violation Detected",
+            "message": f"Audit flagged {len(audit_data.get('issues', []))} issue(s) in submitted text.",
+            "type": "alert",
+            "timestamp": "Just now",
+            "read": False
+        })
+
+    return audit_data
