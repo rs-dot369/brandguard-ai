@@ -323,7 +323,7 @@ export default function Home() {
   ];
 
   const totalGuidelines = serverMetrics.guidelines_in_vault || guidelines.length;
-  const totalAudits = serverMetrics.total_audits || auditHistory.length;
+  const totalAudits = auditHistory.length;
   const issuesFound = auditResult?.issues.length || 0;
   const complianceRate = serverMetrics.compliance_rate;
 
@@ -440,7 +440,7 @@ export default function Home() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {[
             { title: "Guidelines in Vault", value: totalGuidelines, change: "+1", bgClass: "bg-emerald-50", textClass: "text-emerald-500", icon: BookOpen },
-            { title: "Total Audits", value: totalAudits, change: serverMetrics.weekly_trend, bgClass: "bg-emerald-50", textClass: "text-emerald-500", icon: ShieldCheck },
+            { title: "Total Audits", value: auditHistory.length, change: serverMetrics.weekly_trend, bgClass: "bg-emerald-50", textClass: "text-emerald-500", icon: ShieldCheck },
             { title: "Issues Found", value: issuesFound, change: "+2", bgClass: "bg-rose-50", textClass: "text-rose-500", icon: AlertTriangle },
             { title: "Compliance Rate", value: complianceRate, change: "+2%", bgClass: "bg-emerald-50", textClass: "text-emerald-500", icon: CheckCircle2 },
           ].map((card, index) => (
