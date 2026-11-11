@@ -66,6 +66,14 @@ export default function Home() {
   const [userRole, setUserRole] = useState("Editor");
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
+  // Live metrics state from backend
+  const [serverMetrics, setServerMetrics] = useState({
+    guidelines_in_vault: 0,
+    total_audits: 0,
+    compliance_rate: "100%",
+    weekly_trend: "+0% vs last week"
+  });
+
   const router = useRouter();
   const profileRef = useRef<HTMLDivElement>(null);
 
@@ -124,6 +132,7 @@ export default function Home() {
       });
       if (res.ok) {
         const data = await res.json();
+        setServerMetrics(data);
         if (data.guidelines_in_vault !== undefined) {
           setServerGuidelinesCount(data.guidelines_in_vault);
         }
@@ -133,25 +142,26 @@ export default function Home() {
     }
   }
 
+  async function fetchAuditHistory() {
+    try {
+      const token = localStorage.getItem("access_token");
+      const res = await fetch(`${API_URL}/api/audit/history`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAuditHistory(data.history || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch audit history", err);
+    }
+  }
+
   useEffect(() => {
     fetchGuidelines();
     fetchMetrics();
-
-    const savedHistory = localStorage.getItem("brandguard_audit_history");
-    if (savedHistory) {
-      try {
-        setAuditHistory(JSON.parse(savedHistory));
-      } catch (e) {
-        console.error("Failed to parse saved audit history", e);
-      }
-    }
+    fetchAuditHistory();
   }, []);
-
-  useEffect(() => {
-    if (auditHistory.length >= 0) {
-      localStorage.setItem("brandguard_audit_history", JSON.stringify(auditHistory));
-    }
-  }, [auditHistory]);
 
   // --- CONDITIONAL RETURN PLACED SAFELY AFTER ALL HOOKS ---
   if (isCheckingAuth) {
@@ -273,18 +283,9 @@ export default function Home() {
       const data = await res.json();
       setAuditResult(data);
 
-      const newLog: AuditLog = {
-        id: Math.random().toString(36).substring(7),
-        timestamp: new Date().toLocaleTimeString(),
-        textSnippet: contentToAudit.substring(0, 30) + "...",
-        fullText: contentToAudit,
-        status: data.status,
-        issuesCount: data.issues ? data.issues.length : 0,
-      };
-      const updatedHistory = [newLog, ...auditHistory];
-      setAuditHistory(updatedHistory);
-      localStorage.setItem("brandguard_audit_history", JSON.stringify(updatedHistory));
-      fetchMetrics();
+      // Refresh server-side history and metrics instantly
+      await fetchAuditHistory();
+      await fetchMetrics();
     } catch (err) {
       console.error(err);
       alert("Error connecting to backend audit service.");
@@ -335,11 +336,10 @@ export default function Home() {
   ];
 
   const totalGuidelines = serverGuidelinesCount || guidelines.length;
-  const totalAudits = auditHistory.length;
-  const passedAudits = auditHistory.filter(l => l.status === "PASS").length;
+  const totalAudits = serverMetrics.total_audits || auditHistory.length;
   const issuesFound = auditResult?.issues.length || 0;
-  const complianceRate = totalAudits > 0 ? `${Math.round((passedAudits / totalAudits) * 100)}%` : "100%";
-  const weeklyTrend = totalAudits > 0 ? `+${totalAudits * 3}% vs last week` : "+0% vs last week";
+  const complianceRate = serverMetrics.compliance_rate;
+  const weeklyTrend = serverMetrics.weekly_trend;
 
   return (
     <main className="min-h-screen bg-[#F4F6FA] text-slate-900 flex font-sans relative">

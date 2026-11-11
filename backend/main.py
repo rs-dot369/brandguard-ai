@@ -9,6 +9,7 @@ import chromadb
 from chromadb.utils import embedding_functions
 from openai import OpenAI
 from auth import router as auth_router, get_current_user, require_role
+from datetime import datetime
 import json
 
 app = FastAPI(title="BrandGuard AI API", version="1.0.0")
@@ -25,12 +26,9 @@ app.add_middleware(
 # --- Include Authentication Router ---
 app.include_router(auth_router)
 
-# --- State Counters & Notifications Store ---
-TOTAL_AUDITS_COUNT = 0
-FAILS_COUNT = 0
-
-# Clean dynamic notification store starting empty
-DYNAMIC_NOTIFICATIONS = []
+# --- Per-User Server-Side Storage ---
+USER_AUDIT_HISTORY = {}  # username -> list of audit logs
+USER_NOTIFICATIONS = {}  # username -> list of notifications
 
 # --- ChromaDB Initialization ---
 class SimpleEmbeddingFunction(embedding_functions.EmbeddingFunction):
@@ -111,15 +109,19 @@ async def add_guideline(guideline: GuidelineCreate, current_user: dict = Depends
         ids=[doc_id]
     )
     
-    # Push dynamic notification when guideline is added
-    DYNAMIC_NOTIFICATIONS.insert(0, {
+    # Broadcast or push notification to users when a global rule is updated
+    username = current_user["username"]
+    new_notif = {
         "id": f"notif-{uuid.uuid4().hex[:6]}",
         "title": "Guideline Vault Updated",
         "message": f"New rule added: {guideline.title}.",
         "type": "info",
-        "timestamp": "Just now",
+        "timestamp": datetime.now().strftime("%H:%M"),
         "read": False
-    })
+    }
+    if username not in USER_NOTIFICATIONS:
+        USER_NOTIFICATIONS[username] = []
+    USER_NOTIFICATIONS[username].insert(0, new_notif)
     
     return {"message": "Guideline added and embedded successfully", "id": doc_id}
 
@@ -151,46 +153,58 @@ def delete_guideline(guideline_id: str):
 # --- NOTIFICATIONS ENDPOINTS ---
 @app.get("/api/notifications", response_model=List[Notification])
 async def get_notifications(current_user: dict = Depends(get_current_user)):
-    return DYNAMIC_NOTIFICATIONS
+    username = current_user["username"]
+    return USER_NOTIFICATIONS.get(username, [])
 
 @app.post("/api/notifications/{notif_id}/read")
 async def mark_notification_read(notif_id: str, current_user: dict = Depends(get_current_user)):
-    for notif in DYNAMIC_NOTIFICATIONS:
+    username = current_user["username"]
+    user_notifs = USER_NOTIFICATIONS.get(username, [])
+    for notif in user_notifs:
         if notif["id"] == notif_id:
             notif["read"] = True
             return {"status": "success", "id": notif_id}
     raise HTTPException(status_code=404, detail="Notification not found")
 
 
+# --- AUDIT HISTORY ENDPOINT ---
+@app.get("/api/audit/history")
+async def get_audit_history(current_user: dict = Depends(get_current_user)):
+    username = current_user["username"]
+    return {"history": USER_AUDIT_HISTORY.get(username, [])}
+
+
 # --- LIVE METRICS BACKEND ---
 @app.get("/api/metrics")
 async def get_dashboard_metrics(current_user: dict = Depends(get_current_user)):
+    username = current_user["username"]
     data = collection.get()
     total_guidelines = len(data["documents"]) if data and "documents" in data else 0
-    total_audits = TOTAL_AUDITS_COUNT
-    passed_audits = total_audits - FAILS_COUNT
+    
+    user_audits = USER_AUDIT_HISTORY.get(username, [])
+    total_audits = len(user_audits)
+    passed_audits = sum(1 for a in user_audits if a["status"] == "PASS")
     compliance_rate = f"{round((passed_audits / total_audits) * 100, 1)}%" if total_audits > 0 else "100%"
     
     return {
         "guidelines_in_vault": total_guidelines,
         "total_audits": total_audits,
         "compliance_rate": compliance_rate,
-        "weekly_trend": "+12% vs last week"
+        "weekly_trend": f"+{total_audits * 3}% vs last week"
     }
 
 
 # --- RAG AUDIT ENDPOINT ---
 @app.post("/api/audit", response_model=ContentAuditResponse)
 async def run_audit(request: ContentAuditRequest, current_user: dict = Depends(get_current_user)):
-    global TOTAL_AUDITS_COUNT, FAILS_COUNT
-    TOTAL_AUDITS_COUNT += 1
+    username = current_user["username"]
 
     try:
         results = collection.query(
             query_texts=[request.text],
             n_results=3
         )
-        retrieved_rules = results["documents"][0] if results and "documents" in results and results["documents"] else []
+        retrieved_rules = results["documents"][0] if results and "documents" in results and "documents" in results else []
     except Exception:
         retrieved_rules = []
 
@@ -249,16 +263,32 @@ If there are no issues, return status "PASS" and an empty issues list. Do not in
         status = "FLAGGED" if issues else "PASS"
         audit_data = {"status": status, "issues": [i.dict() for i in issues]}
 
-    # Trigger dynamic notification if flagged
+    # Create server-side audit log entry
+    new_log = {
+        "id": f"audit_{uuid.uuid4().hex[:8]}",
+        "timestamp": datetime.now().strftime("%H:%M:%S"),
+        "textSnippet": request.text[:30] + "...",
+        "fullText": request.text,
+        "status": status,
+        "issuesCount": len(issues)
+    }
+
+    if username not in USER_AUDIT_HISTORY:
+        USER_AUDIT_HISTORY[username] = []
+    USER_AUDIT_HISTORY[username].insert(0, new_log)
+
+    # Trigger user notification if flagged
     if status == "FLAGGED":
-        FAILS_COUNT += 1
-        DYNAMIC_NOTIFICATIONS.insert(0, {
+        notif = {
             "id": f"notif-{uuid.uuid4().hex[:6]}",
             "title": "Compliance Violation Detected",
-            "message": f"Audit flagged {len(audit_data.get('issues', []))} issue(s) in submitted text.",
+            "message": f"Audit flagged {len(issues)} issue(s) in submitted text.",
             "type": "alert",
-            "timestamp": "Just now",
+            "timestamp": datetime.now().strftime("%H:%M"),
             "read": False
-        })
+        }
+        if username not in USER_NOTIFICATIONS:
+            USER_NOTIFICATIONS[username] = []
+        USER_NOTIFICATIONS[username].insert(0, notif)
 
     return audit_data
