@@ -303,15 +303,42 @@ export default function Home() {
 
   const exportReport = () => {
     if (!auditResult) return;
-    const reportText = `BRANDGUARD AI - COMPLIANCE AUDIT REPORT\nGenerated: ${new Date().toLocaleString()}\nStatus: ${auditResult.status}\n\nIssues Found (${auditResult.issues.length}):\n` +
-      auditResult.issues.map((i, index) => `\n${index + 1}. [${i.issue_type}]\nSnippet: "${i.snippet}"\nExplanation: ${i.explanation}\nSuggested Fix: ${i.suggested_fix}`).join("\n");
     
-    const blob = new Blob([reportText], { type: "text/plain" });
+    const reportText = `================================================================================
+🛡️ BRANDGUARD AI - ENTERPRISE COMPLIANCE AUDIT REPORT
+================================================================================
+Generated Timestamp : ${new Date().toUTCString()}
+Evaluation Engine   : ChromaDB RAG Semantic Vault + OpenAI GPT-3.5-Turbo
+Audit Status        : ${auditResult.status.toUpperCase()}
+User Context        : ${userEmail} (${userRole})
+--------------------------------------------------------------------------------
+
+EXECUTIVE SUMMARY:
+- Total Issues Flagged : ${auditResult.issues.length}
+- Overall Status       : ${auditResult.status === "PASS" ? "PASSED - Content meets all active brand guidelines." : "FLAGGED - Content violates active brand compliance rules."}
+
+--------------------------------------------------------------------------------
+DETAILED VIOLATIONS & REMEDIATION WORKFLOW:
+--------------------------------------------------------------------------------
+` + (auditResult.issues.length > 0 ? auditResult.issues.map((i, index) => `
+[Issue #${index + 1}] Type: ${i.issue_type}
+- Target Snippet  : "${i.snippet}"
+- Root Cause      : ${i.explanation}
+- Recommended Fix : ${i.suggested_fix}
+--------------------------------------------------------------------------------`).join("\n") : "\nNo individual policy violations detected in this scan session.\n") + `
+
+================================================================================
+Certified Secure & Governed by BrandGuard AI Automated Compliance Gateway
+KonfHub Hackathon Submission Packet | Booking ID: 4f3e0e22
+================================================================================`;
+
+    const blob = new Blob([reportText], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `BrandGuard_Audit_Report_${Date.now()}.txt`;
+    a.download = `BrandGuard_Compliance_Report_${Date.now()}.txt`;
     a.click();
+    URL.revokeObjectURL(url);
   };
 
   const scrollToSection = (sectionName: string) => {
