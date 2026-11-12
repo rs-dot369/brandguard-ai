@@ -423,7 +423,7 @@ export default function Home() {
                 <img src={`https://api.dicebear.com/8.x/adventurer/svg?seed=${userName}`} alt="User" className="w-8 h-8 rounded-full border border-gray-200" />
                 <div className="flex flex-col text-left">
                   <span className="font-semibold text-sm flex items-center gap-1.5">
-                    {userName} 
+                    {userName.includes('@') ? userName.split('@')[0].charAt(0).toUpperCase() + userName.split('@')[0].slice(1) : userName}
                     <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono uppercase ${isAdmin ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'}`}>
                       {userRole}
                     </span>
