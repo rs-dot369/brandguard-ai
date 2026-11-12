@@ -42,6 +42,7 @@ interface AuditLog {
   fullText: string;
   status: string;
   issuesCount: number;
+  issues?: Issue[];
 }
 
 export default function Home() {
