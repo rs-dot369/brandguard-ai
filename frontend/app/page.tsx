@@ -159,15 +159,19 @@ export default function Home() {
         // Populate default active audit result in Section 4 if available and currently empty
         if (historyList.length > 0 && !auditResult) {
           const latest = historyList[0];
+          const isLocallyOverridden = localStorage.getItem(`override_${latest.id}`) === "true";
+          const effectiveStatus = isLocallyOverridden ? "PASS" : latest.status;
+
           setAuditResult({
-            status: latest.status,
-            issues: latest.issues || [{
+            status: effectiveStatus,
+            issues: isLocallyOverridden ? [] : (latest.issues || (effectiveStatus === "PASS" ? [] : [{
               issue_type: "Unverified Claim / Policy Violation",
               snippet: latest.textSnippet,
               explanation: "Flagged based on active semantic guidelines in ChromaDB Vault.",
               suggested_fix: "Refine copy to comply with enterprise brand governance standards."
-            }]
+            }]))
           });
+          setIsApproved(isLocallyOverridden || effectiveStatus === "PASS");
         }
       }
     } catch (err) {
@@ -300,6 +304,7 @@ export default function Home() {
       });
       const data = await res.json();
       setAuditResult(data);
+      setIsApproved(data.status === "PASS");
 
       // Refresh server-side history and metrics instantly
       await fetchAuditHistory();
@@ -649,48 +654,53 @@ KonfHub Hackathon Submission Packet | Booking ID: 4f3e0e22
                 <button onClick={() => setShowAllHistoryModal(true)} className="text-[#4F46E5] hover:underline text-sm font-medium cursor-pointer">View All →</button>
             </div>
             <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
-                {auditHistory.map(log => (
-                    <div 
-                      key={log.id} 
-                      onClick={() => {
-                        // Clicking history log loads it instantly into Section 4 Audit Results
-                        setAuditResult({
-                          status: log.status,
-                          issues: log.issues || [{
-                            issue_type: log.status === "PASS" ? "None" : "Policy Violation",
-                            snippet: log.textSnippet,
-                            explanation: "Retrieved from server audit session log history.",
-                            suggested_fix: "Review active vault rules."
-                          }]
-                        });
-                        setContentToAudit(log.fullText);
-                      }}
-                      className="p-3 bg-[#F9FAFB] border border-gray-100 rounded-xl hover:bg-white hover:border-indigo-200 transition space-y-2 cursor-pointer"
-                    >
-                      <div className="flex items-center justify-between">
-                         <div className="flex items-center gap-3">
-                             <FileText className="w-5 h-5 text-gray-400"/>
-                             <div className="flex flex-col text-sm">
-                                 <span className="font-medium text-slate-950 truncate max-w-[200px]">{log.textSnippet}</span>
-                                 <span className="text-gray-400 text-xs">{log.timestamp}</span>
+                {auditHistory.map(log => {
+                    const isLocallyOverridden = localStorage.getItem(`override_${log.id}`) === "true";
+                    const effectiveStatus = isLocallyOverridden ? "PASS" : log.status;
+
+                    return (
+                        <div 
+                          key={log.id} 
+                          onClick={() => {
+                            setAuditResult({
+                              status: effectiveStatus,
+                              issues: isLocallyOverridden ? [] : (log.issues || (effectiveStatus === "PASS" ? [] : [{
+                                issue_type: "Policy Violation",
+                                snippet: log.textSnippet,
+                                explanation: "Retrieved from server audit session log history.",
+                                suggested_fix: "Review active vault rules."
+                              }]))
+                            });
+                            setIsApproved(isLocallyOverridden || effectiveStatus === "PASS");
+                            setContentToAudit(log.fullText);
+                          }}
+                          className="p-3 bg-[#F9FAFB] border border-gray-100 rounded-xl hover:bg-white hover:border-indigo-200 transition space-y-2 cursor-pointer"
+                        >
+                          <div className="flex items-center justify-between">
+                             <div className="flex items-center gap-3">
+                                 <FileText className="w-5 h-5 text-gray-400"/>
+                                 <div className="flex flex-col text-sm">
+                                     <span className="font-medium text-slate-950 truncate max-w-[200px]">{log.textSnippet}</span>
+                                     <span className="text-gray-400 text-xs">{log.timestamp}</span>
+                                 </div>
                              </div>
-                         </div>
-                          <div className="flex items-center gap-2">
-                              <span className={`text-xs ${log.status === "PASS" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"} px-2.5 py-0.5 rounded-full font-bold`}>{log.status}</span>
-                              <span className="text-sm font-medium text-slate-950">{log.issuesCount} issues</span>
-                              <button onClick={(e) => { e.stopPropagation(); setExpandedLogId(expandedLogId === log.id ? null : log.id); }} className="p-1 hover:bg-gray-200 rounded cursor-pointer">
-                                {expandedLogId === log.id ? <ChevronUp className="w-4 h-4 text-gray-600"/> : <ChevronDown className="w-4 h-4 text-gray-600"/>}
-                              </button>
+                              <div className="flex items-center gap-2">
+                                  <span className={`text-xs ${effectiveStatus === "PASS" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"} px-2.5 py-0.5 rounded-full font-bold`}>{effectiveStatus}</span>
+                                  <span className="text-sm font-medium text-slate-950">{isLocallyOverridden ? 0 : log.issuesCount} issues</span>
+                                  <button onClick={(e) => { e.stopPropagation(); setExpandedLogId(expandedLogId === log.id ? null : log.id); }} className="p-1 hover:bg-gray-200 rounded cursor-pointer">
+                                    {expandedLogId === log.id ? <ChevronUp className="w-4 h-4 text-gray-600"/> : <ChevronDown className="w-4 h-4 text-gray-600"/>}
+                                  </button>
+                              </div>
                           </div>
-                      </div>
-                      {expandedLogId === log.id && (
-                        <div className="pt-2 border-t border-gray-100 text-xs text-gray-600 bg-white p-2.5 rounded-lg">
-                          <p className="font-semibold text-slate-800 mb-1">Full Scanned Text:</p>
-                          <p className="italic">"{log.fullText}"</p>
+                          {expandedLogId === log.id && (
+                            <div className="pt-2 border-t border-gray-100 text-xs text-gray-600 bg-white p-2.5 rounded-lg">
+                              <p className="font-semibold text-slate-800 mb-1">Full Scanned Text:</p>
+                              <p className="italic">"{log.fullText}"</p>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                ))}
+                    );
+                })}
                 {auditHistory.length === 0 && <p className="text-center text-gray-400 py-10 text-sm">No audits yet. Run one from the scanner!</p>}
             </div>
           </section>
@@ -720,19 +730,24 @@ KonfHub Hackathon Submission Packet | Booking ID: 4f3e0e22
                       <span className="text-xs sm:text-sm">Status: {isApproved ? "✅ Approved by Reviewer for Publication" : auditResult.status === "PASS" ? "✅ Content Approved for Publication" : "⚠️ Compliance Issues Detected"}</span>
                       
                       {auditResult.status === "FLAGGED" && !isApproved && (
-                      <button 
-                        onClick={() => {
-                          setIsApproved(true);
-                          setAuditResult({
-                            ...auditResult,
-                            status: "PASS",
-                            issues: []
-                          });
-                        }}
-                        className="bg-emerald-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-emerald-700 transition cursor-pointer">
-                        Override & Approve
-                      </button>
-                    )}
+                        <button 
+                          type="button"
+                          onClick={() => {
+                            setIsApproved(true);
+                            setAuditResult({
+                              ...auditResult,
+                              status: "PASS",
+                              issues: []
+                            });
+                            // Persist override so refresh keeps it approved
+                            if (auditHistory.length > 0) {
+                              localStorage.setItem(`override_${auditHistory[0].id}`, "true");
+                            }
+                          }}
+                          className="bg-emerald-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-emerald-700 transition cursor-pointer">
+                          Override & Approve
+                        </button>
+                      )}
                     </div>
 
                     {auditResult.issues.length > 0 && !isApproved && (
@@ -768,7 +783,7 @@ KonfHub Hackathon Submission Packet | Booking ID: 4f3e0e22
                       ))}
                     </div>
                     )}
-                    {auditResult.issues.length === 0 && auditResult.status === "FLAGGED" && (
+                    {auditResult.issues.length === 0 && auditResult.status === "FLAGGED" && !isApproved && (
                       <p className="text-center text-gray-400 py-5 text-sm">Content flagged but no specific issues identified by LLM. Re-check guidelines.</p>
                     )}
                 </div>
