@@ -720,12 +720,19 @@ KonfHub Hackathon Submission Packet | Booking ID: 4f3e0e22
                       <span className="text-xs sm:text-sm">Status: {isApproved ? "✅ Approved by Reviewer for Publication" : auditResult.status === "PASS" ? "✅ Content Approved for Publication" : "⚠️ Compliance Issues Detected"}</span>
                       
                       {auditResult.status === "FLAGGED" && !isApproved && (
-                        <button 
-                          onClick={() => setIsApproved(true)}
-                          className="bg-emerald-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-emerald-700 transition cursor-pointer">
-                          Override & Approve
-                        </button>
-                      )}
+                      <button 
+                        onClick={() => {
+                          setIsApproved(true);
+                          setAuditResult({
+                            ...auditResult,
+                            status: "PASS",
+                            issues: []
+                          });
+                        }}
+                        className="bg-emerald-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-emerald-700 transition cursor-pointer">
+                        Override & Approve
+                      </button>
+                    )}
                     </div>
 
                     {auditResult.issues.length > 0 && !isApproved && (
