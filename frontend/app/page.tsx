@@ -339,7 +339,12 @@ export default function Home() {
   const totalAudits = serverMetrics.total_audits || auditHistory.length;
   const issuesFound = auditResult?.issues.length || 0;
   const complianceRate = serverMetrics.compliance_rate;
-  const weeklyTrend = serverMetrics.weekly_trend;
+
+  // Clean professional KPI trend subtexts
+  const guidelineTrend = totalGuidelines > 0 ? "Active Vault" : "Empty Vault";
+  const auditTrend = totalAudits > 0 ? `${totalAudits} session run(s)` : "No runs yet";
+  const issuesTrend = issuesFound > 0 ? `${issuesFound} active flag(s)` : "Zero violations";
+  const complianceTrend = totalAudits > 0 ? "Based on active audits" : "Optimal baseline";
 
   return (
     <main className="min-h-screen bg-[#F4F6FA] text-slate-900 flex font-sans relative">
@@ -458,10 +463,10 @@ export default function Home() {
         {/* KPI Cards Row */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {[
-            { title: "Guidelines in Vault", value: totalGuidelines, change: "+1", bgClass: "bg-emerald-50", textClass: "text-emerald-500", icon: BookOpen },
-            { title: "Total Audits", value: totalAudits, change: weeklyTrend, bgClass: "bg-emerald-50", textClass: "text-emerald-500", icon: ShieldCheck },
-            { title: "Issues Found", value: issuesFound, change: "+2", bgClass: "bg-rose-50", textClass: "text-rose-500", icon: AlertTriangle },
-            { title: "Compliance Rate", value: complianceRate, change: "+2%", bgClass: "bg-emerald-50", textClass: "text-emerald-500", icon: CheckCircle2 },
+            { title: "Guidelines in Vault", value: totalGuidelines, change: guidelineTrend, bgClass: "bg-emerald-50", textClass: "text-emerald-500", icon: BookOpen },
+            { title: "Total Audits", value: totalAudits, change: auditTrend, bgClass: "bg-emerald-50", textClass: "text-emerald-500", icon: ShieldCheck },
+            { title: "Issues Found", value: issuesFound, change: issuesTrend, bgClass: issuesFound > 0 ? "bg-rose-50" : "bg-emerald-50", textClass: issuesFound > 0 ? "text-rose-500" : "text-emerald-500", icon: AlertTriangle },
+            { title: "Compliance Rate", value: complianceRate, change: complianceTrend, bgClass: "bg-emerald-50", textClass: "text-emerald-500", icon: CheckCircle2 },
           ].map((card, index) => (
             <div key={index} className="bg-white p-6 rounded-2xl border border-gray-100 flex items-center gap-5 shadow-sm hover:shadow-md transition">
                 <div className={`p-4 ${card.bgClass} rounded-xl`}>
