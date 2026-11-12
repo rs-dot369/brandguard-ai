@@ -152,7 +152,22 @@ export default function Home() {
       });
       if (res.ok) {
         const data = await res.json();
-        setAuditHistory(data.history || []);
+        const historyList = data.history || [];
+        setAuditHistory(historyList);
+        
+        // Populate default active audit result in Section 4 if available and currently empty
+        if (historyList.length > 0 && !auditResult) {
+          const latest = historyList[0];
+          setAuditResult({
+            status: latest.status,
+            issues: latest.issues || [{
+              issue_type: "Unverified Claim / Policy Violation",
+              snippet: latest.textSnippet,
+              explanation: "Flagged based on active semantic guidelines in ChromaDB Vault.",
+              suggested_fix: "Refine copy to comply with enterprise brand governance standards."
+            }]
+          });
+        }
       }
     } catch (err) {
       console.error("Failed to fetch audit history", err);
@@ -369,7 +384,6 @@ KonfHub Hackathon Submission Packet | Booking ID: 4f3e0e22
   const issuesFound = auditResult?.issues.length || 0;
   const complianceRate = serverMetrics.compliance_rate;
 
-  // Clean professional KPI trend subtexts
   const guidelineTrend = totalGuidelines > 0 ? "Active Vault" : "Empty Vault";
   const auditTrend = totalAudits > 0 ? `${totalAudits} session run(s)` : "No runs yet";
   const issuesTrend = issuesFound > 0 ? `${issuesFound} active flag(s)` : "Zero violations";
@@ -395,7 +409,7 @@ KonfHub Hackathon Submission Packet | Booking ID: 4f3e0e22
               <button
                 key={item.name}
                 onClick={() => scrollToSection(item.name)}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition ${
+                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition cursor-pointer ${
                   activeSection === item.name
                     ? "bg-[#EEF2FF] text-[#4F46E5]"
                     : "text-gray-600 hover:bg-gray-50 hover:text-slate-950"
@@ -425,7 +439,6 @@ KonfHub Hackathon Submission Packet | Booking ID: 4f3e0e22
             <span>Latency: <strong className="text-emerald-400">42ms</strong></span>
           </div>
           
-          {/* RAG Architecture Modal Trigger */}
           <button 
             onClick={() => setShowRagModal(true)}
             className="w-full mt-1 bg-indigo-600/60 hover:bg-indigo-600 text-indigo-100 py-2 rounded-xl text-[11px] font-semibold transition border border-indigo-400/30 flex items-center justify-center gap-1.5 cursor-pointer shadow-sm">
@@ -636,7 +649,23 @@ KonfHub Hackathon Submission Packet | Booking ID: 4f3e0e22
             </div>
             <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
                 {auditHistory.map(log => (
-                    <div key={log.id} className="p-3 bg-[#F9FAFB] border border-gray-100 rounded-xl hover:bg-white hover:border-gray-200 transition space-y-2">
+                    <div 
+                      key={log.id} 
+                      onClick={() => {
+                        // Clicking history log loads it instantly into Section 4 Audit Results
+                        setAuditResult({
+                          status: log.status,
+                          issues: log.issues || [{
+                            issue_type: log.status === "PASS" ? "None" : "Policy Violation",
+                            snippet: log.textSnippet,
+                            explanation: "Retrieved from server audit session log history.",
+                            suggested_fix: "Review active vault rules."
+                          }]
+                        });
+                        setContentToAudit(log.fullText);
+                      }}
+                      className="p-3 bg-[#F9FAFB] border border-gray-100 rounded-xl hover:bg-white hover:border-indigo-200 transition space-y-2 cursor-pointer"
+                    >
                       <div className="flex items-center justify-between">
                          <div className="flex items-center gap-3">
                              <FileText className="w-5 h-5 text-gray-400"/>
@@ -648,7 +677,7 @@ KonfHub Hackathon Submission Packet | Booking ID: 4f3e0e22
                           <div className="flex items-center gap-2">
                               <span className={`text-xs ${log.status === "PASS" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"} px-2.5 py-0.5 rounded-full font-bold`}>{log.status}</span>
                               <span className="text-sm font-medium text-slate-950">{log.issuesCount} issues</span>
-                              <button onClick={() => setExpandedLogId(expandedLogId === log.id ? null : log.id)} className="p-1 hover:bg-gray-200 rounded cursor-pointer">
+                              <button onClick={(e) => { e.stopPropagation(); setExpandedLogId(expandedLogId === log.id ? null : log.id); }} className="p-1 hover:bg-gray-200 rounded cursor-pointer">
                                 {expandedLogId === log.id ? <ChevronUp className="w-4 h-4 text-gray-600"/> : <ChevronDown className="w-4 h-4 text-gray-600"/>}
                               </button>
                           </div>
@@ -817,6 +846,7 @@ KonfHub Hackathon Submission Packet | Booking ID: 4f3e0e22
           </div>
         </div>
       )}
+
       {/* RAG Pipeline Architecture Modal */}
       {showRagModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
