@@ -551,17 +551,35 @@ export default function Home() {
 
           {/* 2. Content Compliance Scanner */}
           <section id="scanner-section" className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
-            <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center justify-between mb-3">
                 <h2 className="text-lg font-bold text-slate-950 flex items-center gap-2"><span className="text-[#4F46E5] font-mono">2.</span> Compliance Scanner</h2>
                 <button onClick={()=>setContentToAudit("")} className="text-gray-400 hover:text-rose-500 text-sm font-medium cursor-pointer">Clear</button>
             </div>
+
+            {/* Quick Demo Example Chips for Judges */}
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <span className="text-xs text-gray-400 font-medium">Try Example:</span>
+              <button 
+                type="button"
+                onClick={() => setContentToAudit("Our new cybersecurity platform provides a 100% guarantee against all cyber threats and risk-free data encryption.")}
+                className="text-xs bg-rose-50 text-rose-700 hover:bg-rose-100 px-2.5 py-1 rounded-lg font-medium transition cursor-pointer border border-rose-100">
+                ⚠️ Trigger Violation (Unverified Claim)
+              </button>
+              <button 
+                type="button"
+                onClick={() => setContentToAudit("Our updated security platform helps teams monitor network vulnerabilities and maintain strong infrastructure protection.")}
+                className="text-xs bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-2.5 py-1 rounded-lg font-medium transition cursor-pointer border border-emerald-100">
+                ✅ Clean Content (Pass)
+              </button>
+            </div>
+
             <form onSubmit={handleAuditContent} className="flex-1 flex flex-col justify-between">
                 <div className="relative flex-1">
                     <textarea
                       value={contentToAudit}
                       onChange={e=>setContentToAudit(e.target.value)}
                       placeholder="Paste your content here to check for compliance issues..."
-                      className="w-full h-full min-h-[260px] p-5 border border-gray-100 rounded-2xl text-sm focus:ring-2 focus:ring-[#C7D2FE] resize-none bg-[#F9FAFB] text-slate-900"
+                      className="w-full h-full min-h-[220px] p-5 border border-gray-100 rounded-2xl text-sm focus:ring-2 focus:ring-[#C7D2FE] resize-none bg-[#F9FAFB] text-slate-900"
                       required
                     />
                      <div className="absolute bottom-4 right-4 text-xs text-gray-400">{contentToAudit.length} characters</div>
