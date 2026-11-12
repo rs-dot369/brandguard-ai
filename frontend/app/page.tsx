@@ -351,9 +351,9 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-[#F4F6FA] text-slate-900 flex font-sans relative">
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-100 p-6 hidden md:flex flex-col justify-between sticky top-0 h-screen">
+      <aside className="w-64 bg-white border-r border-gray-100 p-5 hidden md:flex flex-col justify-between sticky top-0 h-screen overflow-y-auto">
         <div>
-          <div className="flex items-center gap-3 mb-10">
+          <div className="flex items-center gap-3 mb-8">
             <div className="w-9 h-9 rounded-lg bg-[#4F46E5] flex items-center justify-center">
               <ShieldCheck className="w-5 h-5 text-white" />
             </div>
@@ -363,7 +363,7 @@ export default function Home() {
             </div>
           </div>
 
-          <nav className="space-y-3">
+          <nav className="space-y-2">
             {navItems.map((item) => (
               <button
                 key={item.name}
@@ -381,32 +381,32 @@ export default function Home() {
           </nav>
         </div>
 
-        {/* Security Status Card */}
-        {/* Security Status Card */}
-        <div className="bg-gradient-to-br from-indigo-900 to-slate-900 text-white rounded-2xl p-5 mt-6 shadow-lg border border-indigo-500/20 space-y-3">
+        {/* Security Status Card & RAG Architecture Button */}
+        <div className="bg-gradient-to-br from-indigo-900 to-slate-900 text-white rounded-2xl p-4 my-4 shadow-lg border border-indigo-500/25 space-y-2.5">
           <div className="flex items-center justify-between">
-            <div className="w-10 h-10 rounded-xl bg-indigo-600/50 flex items-center justify-center border border-indigo-400/30">
-              <ShieldCheck className="w-5 h-5 text-indigo-300" />
+            <div className="w-8 h-8 rounded-lg bg-indigo-600/50 flex items-center justify-center border border-indigo-400/30">
+              <ShieldCheck className="w-4 h-4 text-indigo-300" />
             </div>
-            <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2.5 py-0.5 rounded-full font-mono border border-emerald-500/30">RAG Active</span>
+            <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-mono border border-emerald-500/30">RAG Active</span>
           </div>
           <div>
-            <h4 className="font-bold text-sm">ChromaDB Vector Vault</h4>
-            <p className="text-xs text-indigo-200 mt-0.5">Connected to secure embedding store.</p>
+            <h4 className="font-bold text-xs">ChromaDB Vector Vault</h4>
+            <p className="text-[11px] text-indigo-200">Connected to secure embedding store.</p>
           </div>
-          <div className="pt-2 border-t border-indigo-800/60 flex justify-between items-center text-xs text-indigo-300">
-            <span>Active Rules: <strong className="text-white">{totalGuidelines}</strong></span>
+          <div className="pt-2 border-t border-indigo-800/60 flex justify-between items-center text-[11px] text-indigo-300">
+            <span>Rules: <strong className="text-white">{totalGuidelines}</strong></span>
             <span>Latency: <strong className="text-emerald-400">42ms</strong></span>
           </div>
           
           {/* RAG Architecture Modal Trigger */}
           <button 
             onClick={() => setShowRagModal(true)}
-            className="w-full mt-2 bg-indigo-600/60 hover:bg-indigo-600 text-indigo-100 py-2 rounded-xl text-xs font-semibold transition border border-indigo-400/30 flex items-center justify-center gap-1.5 cursor-pointer">
+            className="w-full mt-1 bg-indigo-600/60 hover:bg-indigo-600 text-indigo-100 py-2 rounded-xl text-[11px] font-semibold transition border border-indigo-400/30 flex items-center justify-center gap-1.5 cursor-pointer shadow-sm">
             🧠 View RAG Pipeline Architecture
           </button>
         </div>
-        <p className="text-[10px] text-gray-400 text-center mt-3">v1.0.0 • Round 3 Build</p>
+        
+        <p className="text-[10px] text-gray-400 text-center pb-2">v1.0.0 • Round 3 Build</p>
       </aside>
 
       {/* Main Content Area */}
