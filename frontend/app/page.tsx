@@ -66,6 +66,8 @@ export default function Home() {
   const [userRole, setUserRole] = useState("Editor");
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
+  const [showRagModal, setShowRagModal] = useState(false);
+
   // Live metrics state from backend
   const [serverMetrics, setServerMetrics] = useState({
     guidelines_in_vault: 0,
@@ -380,7 +382,8 @@ export default function Home() {
         </div>
 
         {/* Security Status Card */}
-        <div className="bg-gradient-to-br from-indigo-900 to-slate-900 text-white rounded-2xl p-5 mt-8 shadow-lg border border-indigo-500/20 space-y-3">
+        {/* Security Status Card */}
+        <div className="bg-gradient-to-br from-indigo-900 to-slate-900 text-white rounded-2xl p-5 mt-6 shadow-lg border border-indigo-500/20 space-y-3">
           <div className="flex items-center justify-between">
             <div className="w-10 h-10 rounded-xl bg-indigo-600/50 flex items-center justify-center border border-indigo-400/30">
               <ShieldCheck className="w-5 h-5 text-indigo-300" />
@@ -395,8 +398,15 @@ export default function Home() {
             <span>Active Rules: <strong className="text-white">{totalGuidelines}</strong></span>
             <span>Latency: <strong className="text-emerald-400">42ms</strong></span>
           </div>
+          
+          {/* RAG Architecture Modal Trigger */}
+          <button 
+            onClick={() => setShowRagModal(true)}
+            className="w-full mt-2 bg-indigo-600/60 hover:bg-indigo-600 text-indigo-100 py-2 rounded-xl text-xs font-semibold transition border border-indigo-400/30 flex items-center justify-center gap-1.5 cursor-pointer">
+            🧠 View RAG Pipeline Architecture
+          </button>
         </div>
-        <p className="text-[10px] text-gray-400 text-center mt-4">v1.0.0 • Round 3 Build</p>
+        <p className="text-[10px] text-gray-400 text-center mt-3">v1.0.0 • Round 3 Build</p>
       </aside>
 
       {/* Main Content Area */}
@@ -775,6 +785,59 @@ export default function Home() {
             <div className="px-6 py-4 border-t border-gray-100 flex justify-end bg-white">
               <button onClick={() => setShowAllHistoryModal(false)} className="bg-[#4F46E5] text-white text-sm px-5 py-2 rounded-xl font-semibold hover:bg-[#4338CA] cursor-pointer">
                 Close Modal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* RAG Pipeline Architecture Modal */}
+      {showRagModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl border border-gray-100 overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-slate-50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#4F46E5] flex items-center justify-center text-white font-bold">
+                  🧠
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-950">BrandGuard RAG Architecture</h3>
+                  <p className="text-xs text-gray-500">Autonomous Semantic Governance Pipeline</p>
+                </div>
+              </div>
+              <button onClick={() => setShowRagModal(false)} className="text-gray-400 hover:text-slate-950 p-1.5 rounded-xl bg-white border border-gray-200 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4 bg-[#F9FAFB] text-sm text-slate-700">
+              <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm space-y-1.5">
+                <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded font-mono font-bold">Step 1: Ingestion & Vectorization</span>
+                <h4 className="font-bold text-slate-900">ChromaDB Secure Vector Vault</h4>
+                <p className="text-xs text-gray-600">Proprietary brand guidelines and policies are embedded and indexed locally in ChromaDB for high-speed semantic retrieval.</p>
+              </div>
+
+              <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm space-y-1.5">
+                <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded font-mono font-bold">Step 2: Semantic Retrieval</span>
+                <h4 className="font-bold text-slate-900">Contextual Rule Matching</h4>
+                <p className="text-xs text-gray-600">When content is submitted in the Compliance Scanner, the RAG engine performs vector similarity search to extract the most relevant brand rules (Top-K).</p>
+              </div>
+
+              <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm space-y-1.5">
+                <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded font-mono font-bold">Step 3: LLM Audit & Guardrails</span>
+                <h4 className="font-bold text-slate-900">OpenAI GPT-3.5-Turbo Analysis</h4>
+                <p className="text-xs text-gray-600">Retrieved rules and draft text are injected into the governance prompt. The LLM evaluates tone violations, unverified claims, and forbidden terms with robust rule-based fallback handlers.</p>
+              </div>
+
+              <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm space-y-1.5">
+                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded font-mono font-bold">Step 4: Enterprise Enforcement</span>
+                <h4 className="font-bold text-slate-900">User Isolation & Actionable Fixes</h4>
+                <p className="text-xs text-gray-600">Results are recorded in server-side user-isolated audit histories. Reviewers receive real-time notifications, fix application tools, and downloadable compliance reports.</p>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-end bg-white">
+              <button onClick={() => setShowRagModal(false)} className="bg-[#4F46E5] text-white text-sm px-6 py-2.5 rounded-xl font-semibold hover:bg-[#4338CA] cursor-pointer shadow-md">
+                Got it, Close Modal
               </button>
             </div>
           </div>

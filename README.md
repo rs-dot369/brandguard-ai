@@ -8,6 +8,7 @@ BrandGuard AI is an autonomous, RAG-powered governance platform designed to prot
 ## 🚀 Live Demo & Access
 * **Frontend Application (Vercel):** [https://brandguard-ai-lyart.vercel.app](https://brandguard-ai-lyart.vercel.app)
 * **Backend API (Render):** [https://brandguard-ai-backend-m9r2.onrender.com](https://brandguard-ai-backend-m9r2.onrender.com)
+* **Interactive API Documentation (Swagger / OpenAPI):** [https://brandguard-ai-backend-m9r2.onrender.com/docs](https://brandguard-ai-backend-m9r2.onrender.com/docs) *(Inspect endpoints, schemas, and test REST operations directly)*
 
 ### 🔑 Demo Credentials (Test Accounts)
 Try logging in with our pre-configured roles to test role-based access control (RBAC):
